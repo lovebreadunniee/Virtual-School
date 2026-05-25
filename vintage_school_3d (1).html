@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashford International School — Virtual Tour</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Cinzel:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a0f00;
+    overflow: hidden;
+    font-family: 'IM Fell English', serif;
+    color: #f5e6c8;
+    cursor: crosshair;
+  }
+
+  #canvas-container { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* ── HUD Header ── */
+  #hud-header {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 28px;
+    background: linear-gradient(180deg, rgba(15,8,0,0.95) 0%, rgba(15,8,0,0.0) 100%);
+    pointer-events: none; z-index: 50;
+  }
+  #hud-header .crest {
+    font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
+    color: #c9a55a; text-transform: uppercase;
+    border: 1px solid rgba(201,165,90,0.4); padding: 6px 14px;
+    background: rgba(0,0,0,0.3);
+  }
+  #hud-header .title {
+    font-family: 'Playfair Display', serif; font-size: 20px;
+    color: #f5e6c8; text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  #hud-header .title span { font-style: italic; color: #c9a55a; }
+  #hud-header .year {
+    font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
+    color: #c9a55a; border: 1px solid rgba(201,165,90,0.4); padding: 6px 14px;
+    background: rgba(0,0,0,0.3);
+  }
+
+  /* ── Controls hint ── */
+  #controls-hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 16px; z-index: 50;
+    background: rgba(10,5,0,0.85); border: 1px solid rgba(201,165,90,0.3);
+    padding: 10px 20px; border-radius: 2px;
+    font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px; color: #a07840;
+    transition: opacity 0.5s;
+  }
+  #controls-hint .key {
+    background: rgba(201,165,90,0.15); border: 1px solid rgba(201,165,90,0.4);
+    padding: 2px 7px; border-radius: 2px; color: #c9a55a;
+  }
+
+  /* ── Upload Panel ── */
+  #upload-panel {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    width: 260px; z-index: 100;
+    background: linear-gradient(180deg, #1c1006 0%, #0f0800 100%);
+    border-left: 2px solid #8b6914; border-top: 2px solid #8b6914;
+    border-bottom: 2px solid #8b6914;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.7);
+    transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  #upload-panel.hidden { transform: translateY(-50%) translateX(260px); }
+
+  #panel-header {
+    background: linear-gradient(135deg, #2a1a04, #1a0f00);
+    border-bottom: 1px solid #8b6914;
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+  }
+  #panel-header h3 {
+    font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
+    color: #c9a55a; text-transform: uppercase;
+  }
+
+  #panel-toggle {
+    position: absolute; left: -36px; top: 50%; transform: translateY(-50%);
+    background: #1c1006; border: 2px solid #8b6914; border-right: none;
+    color: #c9a55a; padding: 14px 8px; cursor: pointer;
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 2px;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    transition: background 0.2s;
+  }
+  #panel-toggle:hover { background: #2a1a04; }
+
+  #panel-content { padding: 16px; }
+
+  .upload-zone {
+    border: 2px dashed rgba(201,165,90,0.4); border-radius: 2px;
+    padding: 20px 12px; text-align: center; cursor: pointer;
+    transition: all 0.3s; margin-bottom: 14px;
+    background: rgba(201,165,90,0.03);
+    position: relative; overflow: hidden;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: #c9a55a; background: rgba(201,165,90,0.08);
+  }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-zone .upload-icon {
+    font-size: 28px; display: block; margin-bottom: 8px; filter: sepia(1);
+  }
+  .upload-zone p {
+    font-size: 11px; color: #a07840; line-height: 1.6;
+    font-family: 'Cinzel', serif; letter-spacing: 1px;
+  }
+  .upload-zone .drop-hint {
+    font-size: 9px; color: #6b4e20; margin-top: 6px; letter-spacing: 2px;
+  }
+
+  .section-label {
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 3px;
+    color: #6b4e20; text-transform: uppercase; margin: 12px 0 8px;
+    border-bottom: 1px solid rgba(201,165,90,0.2); padding-bottom: 4px;
+  }
+
+  #thumbnail-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px;
+    max-height: 200px; overflow-y: auto;
+  }
+  #thumbnail-grid::-webkit-scrollbar { width: 4px; }
+  #thumbnail-grid::-webkit-scrollbar-track { background: #0f0800; }
+  #thumbnail-grid::-webkit-scrollbar-thumb { background: #8b6914; border-radius: 2px; }
+
+  .thumb-item {
+    position: relative; aspect-ratio: 1; cursor: pointer;
+    border: 1px solid rgba(201,165,90,0.2); overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .thumb-item:hover { border-color: #c9a55a; }
+  .thumb-item.active { border-color: #c9a55a; box-shadow: 0 0 8px rgba(201,165,90,0.4); }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; filter: sepia(0.3) brightness(0.85); }
+  .thumb-item .remove-btn {
+    position: absolute; top: 2px; right: 2px; width: 16px; height: 16px;
+    background: rgba(120,20,0,0.8); color: #ffaa88; font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0; transition: opacity 0.2s; border: none;
+    line-height: 1;
+  }
+  .thumb-item:hover .remove-btn { opacity: 1; }
+
+  .place-btn {
+    width: 100%; padding: 9px;
+    background: linear-gradient(135deg, #3a2408, #2a1a04);
+    border: 1px solid #8b6914; color: #c9a55a;
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 3px;
+    cursor: pointer; text-transform: uppercase; transition: all 0.2s;
+    margin-bottom: 8px;
+  }
+  .place-btn:hover {
+    background: linear-gradient(135deg, #4a3010, #3a2408);
+    border-color: #c9a55a; box-shadow: 0 0 12px rgba(201,165,90,0.2);
+  }
+  .place-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .frame-select {
+    width: 100%; background: #0f0800; border: 1px solid #8b6914;
+    color: #c9a55a; padding: 7px 10px;
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 1px;
+    margin-bottom: 8px; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23c9a55a'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    cursor: pointer;
+  }
+
+  .status-bar {
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 2px;
+    color: #6b4e20; text-align: center; padding: 6px;
+    border-top: 1px solid rgba(201,165,90,0.15); margin-top: 8px;
+  }
+  .status-bar.success { color: #7a9a5a; }
+  .status-bar.error { color: #9a4a3a; }
+
+  /* ── Crosshair ── */
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; z-index: 40;
+    transform: translate(-50%, -50%); pointer-events: none;
+    width: 20px; height: 20px;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: rgba(201,165,90,0.6);
+  }
+  #crosshair::before { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after { width: 100%; height: 1px; top: 50%; transform: translateY(-50%); }
+
+  /* ── Loading screen ── */
+  #loading-screen {
+    position: fixed; inset: 0; background: #0a0500; z-index: 200;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 1s ease 0.5s;
+  }
+  #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+  #loading-screen .school-name {
+    font-family: 'Cinzel', serif; font-size: 28px; letter-spacing: 8px;
+    color: #c9a55a; margin-bottom: 8px; text-align: center;
+  }
+  #loading-screen .school-sub {
+    font-family: 'IM Fell English', serif; font-style: italic;
+    font-size: 14px; color: #8b6914; letter-spacing: 3px; margin-bottom: 40px;
+  }
+  #loading-screen .ornament { color: #c9a55a; font-size: 24px; margin-bottom: 24px; }
+  #loading-bar-wrap {
+    width: 280px; height: 2px; background: rgba(201,165,90,0.15);
+    border: 1px solid rgba(201,165,90,0.3); overflow: hidden;
+  }
+  #loading-bar { height: 100%; background: #c9a55a; width: 0%; transition: width 0.3s; }
+  #loading-text {
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 3px;
+    color: #6b4e20; margin-top: 12px;
+  }
+
+  /* Pointer lock overlay */
+  #pointer-lock-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    transition: opacity 0.4s; cursor: pointer;
+  }
+  #pointer-lock-overlay.hidden { opacity: 0; pointer-events: none; }
+  #pointer-lock-overlay .click-msg {
+    text-align: center; border: 1px solid rgba(201,165,90,0.4);
+    padding: 36px 48px; background: rgba(10,5,0,0.9);
+  }
+  #pointer-lock-overlay .click-msg h2 {
+    font-family: 'Playfair Display', serif; font-size: 22px;
+    color: #f5e6c8; margin-bottom: 8px;
+  }
+  #pointer-lock-overlay .click-msg p {
+    font-size: 12px; color: #a07840; letter-spacing: 2px;
+    font-family: 'Cinzel', serif; margin-top: 16px;
+  }
+  #pointer-lock-overlay .big-enter {
+    font-size: 48px; margin-bottom: 12px; opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <div class="ornament">❦</div>
+  <div class="school-name">ASHFORD</div>
+  <div class="school-sub">International School · Est. MCMXXIII</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <div id="loading-text">Preparing the Halls...</div>
+</div>
+
+<!-- Pointer Lock Overlay -->
+<div id="pointer-lock-overlay">
+  <div class="click-msg">
+    <div class="big-enter">🎓</div>
+    <h2>Enter the School</h2>
+    <p>WASD / Arrow Keys — Move</p>
+    <p>Mouse — Look Around</p>
+    <p style="margin-top:20px; color:#c9a55a;">Click to Begin Exploration</p>
+  </div>
+</div>
+
+<!-- 3D Canvas -->
+<div id="canvas-container"><canvas id="three-canvas"></canvas></div>
+
+<!-- HUD Header -->
+<div id="hud-header">
+  <div class="crest">Est. MCMXXIII</div>
+  <div class="title">Ashford <span>International School</span></div>
+  <div class="year">Anno Domini · 2024</div>
+</div>
+
+<!-- Crosshair -->
+<div id="crosshair"></div>
+
+<!-- Controls Hint -->
+<div id="controls-hint">
+  <span><span class="key">W A S D</span> เดิน</span>
+  <span><span class="key">Mouse</span> มอง</span>
+  <span><span class="key">E</span> แขวนรูป</span>
+  <span><span class="key">ESC</span> ปลดล็อค</span>
+</div>
+
+<!-- Upload Panel -->
+<div id="upload-panel" class="hidden">
+  <div id="panel-toggle" onclick="togglePanel()">GALLERY UPLOAD</div>
+  <div id="panel-header">
+    <h3>🖼 Art Gallery</h3>
+    <span style="font-size:10px;color:#6b4e20;font-family:'Cinzel',serif;letter-spacing:1px;">UPLOAD ARTWORK</span>
+  </div>
+  <div id="panel-content">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/*" multiple>
+      <span class="upload-icon">🖼</span>
+      <p>Drop images here<br>or click to browse</p>
+      <p class="drop-hint">JPG · PNG · WEBP · GIF</p>
+    </div>
+
+    <div class="section-label">Selected Frame</div>
+    <select class="frame-select" id="frame-select">
+      <option value="0">Frame #1 — Main Hall</option>
+      <option value="1">Frame #2 — East Wing</option>
+      <option value="2">Frame #3 — Library</option>
+      <option value="3">Frame #4 — Trophy Room</option>
+      <option value="4">Frame #5 — Corridor</option>
+      <option value="5">Frame #6 — Study Hall</option>
+    </select>
+
+    <div class="section-label">Uploaded Images</div>
+    <div id="thumbnail-grid"></div>
+
+    <button class="place-btn" id="place-btn" disabled>⬛ Place on Wall</button>
+    <button class="place-btn" id="clear-btn" style="background:linear-gradient(135deg,#2a0808,#1a0400);border-color:#8b2214;color:#c87860;">✕ Clear Frame</button>
+
+    <div class="status-bar" id="status-bar">No image selected</div>
+  </div>
+</div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  ASHFORD INTERNATIONAL SCHOOL — 3D ENVIRONMENT
+// ═══════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.8;
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0500);
+scene.fog = new THREE.FogExp2(0x2a1a08, 0.018);
+
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 80);
+camera.position.set(0, 1.7, 4);
+
+// ── CANVAS TEXTURE HELPERS ──────────────────────────────────────
+
+function makeCanvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); draw(ctx, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding; return t;
+}
+
+// Wood plank texture
+function woodTex(baseHue = '#5c3a1e', grain = '#3d2610') {
+  return makeCanvasTex(512, 512, (ctx, W, H) => {
+    const g = ctx.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0, baseHue); g.addColorStop(0.5, grain); g.addColorStop(1, baseHue);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // grain lines
+    for (let i = 0; i < 80; i++) {
+      const x = Math.random() * W;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + (Math.random()-0.5)*20, H);
+      ctx.strokeStyle = `rgba(0,0,0,${Math.random()*0.15})`;
+      ctx.lineWidth = Math.random() * 2 + 0.5; ctx.stroke();
+    }
+    // noise
+    for (let i = 0; i < 4000; i++) {
+      ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.05})`;
+      ctx.fillRect(Math.random()*W, Math.random()*H, 2, 2);
+    }
+  });
+}
+
+// Stone / tile texture
+function stoneTex(color='#4a3f30') {
+  return makeCanvasTex(512, 512, (ctx, W, H) => {
+    ctx.fillStyle = color; ctx.fillRect(0,0,W,H);
+    const TW=64, TH=40;
+    for (let row=0; row<H/TH+1; row++) {
+      const off = (row%2)*TW*0.5;
+      for (let col=0; col<W/TW+2; col++) {
+        const x=col*TW-off, y=row*TH;
+        ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=2;
+        ctx.strokeRect(x+2,y+2,TW-4,TH-4);
+        ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.04})`;
+        ctx.fillRect(x+2,y+2,TW-4,TH-4);
+      }
+    }
+    for (let i=0;i<3000;i++) {
+      ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.06})`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,1,1);
+    }
+  });
+}
+
+// Wallpaper - vintage damask
+function wallpaperTex() {
+  return makeCanvasTex(256, 256, (ctx, W, H) => {
+    // Deep forest green base
+    ctx.fillStyle = '#1a2a18'; ctx.fillRect(0,0,W,H);
+    // Damask motif tiling
+    const drawMotif = (cx, cy, s) => {
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(s,s);
+      ctx.strokeStyle='rgba(180,160,80,0.25)'; ctx.lineWidth=1.5/s;
+      // Oval
+      ctx.beginPath(); ctx.ellipse(0,0,8,12,0,0,Math.PI*2); ctx.stroke();
+      // Petals
+      for (let a=0;a<4;a++) {
+        ctx.save(); ctx.rotate(a*Math.PI/2);
+        ctx.beginPath(); ctx.ellipse(0,-14,4,7,0,0,Math.PI*2);
+        ctx.stroke(); ctx.restore();
+      }
+      // Leaves
+      for (let a=0;a<4;a++) {
+        ctx.save(); ctx.rotate(a*Math.PI/2+Math.PI/4);
+        ctx.beginPath(); ctx.moveTo(0,-6); ctx.quadraticCurveTo(8,-16,0,-22);
+        ctx.quadraticCurveTo(-8,-16,0,-6); ctx.stroke(); ctx.restore();
+      }
+      ctx.restore();
+    };
+    for (let row=0;row<4;row++) for (let col=0;col<4;col++) {
+      const off = (row%2)*32;
+      drawMotif(col*64+off+32, row*64+32, 1);
+    }
+    // subtle vertical stripe
+    for (let x=0;x<W;x+=32) {
+      const g=ctx.createLinearGradient(x,0,x+32,0);
+      g.addColorStop(0,'rgba(0,0,0,0.1)');g.addColorStop(0.5,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0.1)');
+      ctx.fillStyle=g; ctx.fillRect(x,0,32,H);
+    }
+  });
+}
+
+// Ceiling plaster texture
+function ceilingTex() {
+  return makeCanvasTex(512, 512, (ctx, W, H) => {
+    ctx.fillStyle = '#f0e8d8'; ctx.fillRect(0,0,W,H);
+    // Subtle noise
+    for (let i=0;i<8000;i++) {
+      const v = Math.floor(Math.random()*30);
+      ctx.fillStyle=`rgba(${200-v},${190-v},${170-v},0.3)`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,2,2);
+    }
+    // Moulding grid
+    ctx.strokeStyle='rgba(180,170,150,0.5)'; ctx.lineWidth=3;
+    for (let x=0;x<=W;x+=128) { ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+    for (let y=0;y<=H;y+=128) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+  });
+}
+
+// Oak panel texture (wainscoting)
+function oakPanelTex() {
+  return makeCanvasTex(256, 512, (ctx, W, H) => {
+    // Base
+    const g = ctx.createLinearGradient(0,0,W,0);
+    g.addColorStop(0,'#4a2e10'); g.addColorStop(0.5,'#3a2208'); g.addColorStop(1,'#4a2e10');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // Panel borders
+    const panels = [[10,10,W-20,H/2-15],[10,H/2+5,W-20,H/2-15]];
+    panels.forEach(([x,y,pw,ph]) => {
+      ctx.strokeStyle='rgba(100,70,20,0.8)'; ctx.lineWidth=3;
+      ctx.strokeRect(x,y,pw,ph);
+      ctx.strokeStyle='rgba(200,160,60,0.3)'; ctx.lineWidth=1;
+      ctx.strokeRect(x+4,y+4,pw-8,ph-8);
+    });
+    for (let i=0;i<2000;i++) {
+      ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.08})`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,1,2);
+    }
+  });
+}
+
+// Carpet texture
+function carpetTex() {
+  return makeCanvasTex(256, 256, (ctx, W, H) => {
+    ctx.fillStyle='#5a1a1a'; ctx.fillRect(0,0,W,H);
+    // Pattern
+    for (let row=0;row<8;row++) for (let col=0;col<8;col++) {
+      const x=col*32,y=row*32;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.fillRect(x,y,32,32);
+      ctx.strokeStyle='rgba(200,150,50,0.3)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x+2,y+2); ctx.lineTo(x+30,y+30); ctx.moveTo(x+30,y+2); ctx.lineTo(x+2,y+30); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x+16,y+16,8,0,Math.PI*2);
+      ctx.strokeStyle='rgba(180,130,40,0.25)'; ctx.stroke();
+    }
+    for (let i=0;i<3000;i++) {
+      ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,1,1);
+    }
+  });
+}
+
+// Picture frame texture
+function frameTexture(color='#3a2608') {
+  return makeCanvasTex(256, 256, (ctx, W, H) => {
+    // Outer
+    const g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#6a4818'); g.addColorStop(0.3,color); g.addColorStop(0.7,color); g.addColorStop(1,'#6a4818');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // Inner shadow
+    const ig=ctx.createRadialGradient(W/2,H/2,W*0.3,W/2,H/2,W*0.7);
+    ig.addColorStop(0,'rgba(0,0,0,0)'); ig.addColorStop(1,'rgba(0,0,0,0.4)');
+    ctx.fillStyle=ig; ctx.fillRect(0,0,W,H);
+    // Gold edge
+    ctx.strokeStyle='rgba(201,165,90,0.6)'; ctx.lineWidth=2;
+    ctx.strokeRect(4,4,W-8,H-8);
+    ctx.strokeStyle='rgba(100,70,20,0.8)'; ctx.lineWidth=1;
+    ctx.strokeRect(8,8,W-16,H-16);
+  });
+}
+
+// Blackboard texture
+function blackboardTex() {
+  return makeCanvasTex(512, 320, (ctx, W, H) => {
+    ctx.fillStyle='#1a2a1a'; ctx.fillRect(0,0,W,H);
+    // Chalk marks (decorative)
+    ctx.strokeStyle='rgba(230,220,200,0.15)'; ctx.lineWidth=2;
+    for (let i=0;i<5;i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random()*W, Math.random()*H);
+      ctx.lineTo(Math.random()*W, Math.random()*H);
+      ctx.stroke();
+    }
+    // "Welcome" text feel
+    ctx.fillStyle='rgba(230,220,200,0.25)'; ctx.font='bold 28px serif';
+    ctx.textAlign='center'; ctx.fillText('Welcome to Ashford', W/2, H*0.35);
+    ctx.font='18px serif';
+    ctx.fillStyle='rgba(230,220,200,0.18)';
+    ctx.fillText('International School', W/2, H*0.55);
+    ctx.font='14px serif';
+    ctx.fillText('Est. MCMXXIII', W/2, H*0.72);
+    // Border
+    ctx.strokeStyle='rgba(80,60,20,0.8)'; ctx.lineWidth=6;
+    ctx.strokeRect(3,3,W-6,H-6);
+  });
+}
+
+// Bookshelf texture
+function bookshelfTex() {
+  return makeCanvasTex(512, 128, (ctx, W, H) => {
+    const colors = ['#8B0000','#00008B','#006400','#4B0082','#8B4513','#2F4F4F','#722F37','#1C1C8C'];
+    let x = 0;
+    while (x < W) {
+      const bw = 18 + Math.random()*20;
+      const bh = H * (0.6 + Math.random()*0.35);
+      const col = colors[Math.floor(Math.random()*colors.length)];
+      ctx.fillStyle = col; ctx.fillRect(x, H-bh, bw, bh);
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(x, H-bh, bw, 3);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth=1;
+      ctx.strokeRect(x, H-bh, bw, bh);
+      // spine label
+      ctx.fillStyle='rgba(255,255,200,0.6)'; ctx.font='8px serif';
+      ctx.save(); ctx.translate(x+bw/2, H-bh/2);
+      ctx.rotate(-Math.PI/2); ctx.textAlign='center';
+      ctx.fillText('Vol.'+Math.floor(Math.random()*99+1), 0, 3);
+      ctx.restore();
+      x += bw + 1;
+    }
+    // shelf plank
+    const sg = ctx.createLinearGradient(0,H-4,0,H);
+    sg.addColorStop(0,'#6a4010'); sg.addColorStop(1,'#3a2008');
+    ctx.fillStyle=sg; ctx.fillRect(0,H-4,W,4);
+  });
+}
+
+// Clock face
+function clockTex() {
+  return makeCanvasTex(256,256,(ctx,W,H)=>{
+    ctx.fillStyle='#f5e8c8'; ctx.beginPath(); ctx.arc(W/2,H/2,W/2-2,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#3a2608'; ctx.lineWidth=6;
+    ctx.beginPath(); ctx.arc(W/2,H/2,W/2-4,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6-Math.PI/2;
+      const r1=W/2-16, r2=W/2-28;
+      ctx.strokeStyle='#3a2608'; ctx.lineWidth= i%3===0?4:2;
+      ctx.beginPath();
+      ctx.moveTo(W/2+Math.cos(a)*r1, H/2+Math.sin(a)*r1);
+      ctx.lineTo(W/2+Math.cos(a)*r2, H/2+Math.sin(a)*r2);
+      ctx.stroke();
+    }
+    // Hands (showing ~10:10)
+    const drawHand=(angle,len,w)=>{
+      ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(angle);
+      ctx.strokeStyle='#1a0f00'; ctx.lineWidth=w; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(0,-len); ctx.stroke();
+      ctx.restore();
+    };
+    drawHand(-Math.PI/6*2+Math.PI/6, W*0.28, 5); // hour ~10
+    drawHand(Math.PI/6*2, W*0.37, 3); // min ~10
+    ctx.fillStyle='#8b1a00'; ctx.beginPath(); ctx.arc(W/2,H/2,5,0,Math.PI*2); ctx.fill();
+  });
+}
+
+// Globe texture (simplified)
+function globeTex() {
+  return makeCanvasTex(512,256,(ctx,W,H)=>{
+    ctx.fillStyle='#1a3a5c'; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(100,180,255,0.3)'; ctx.lineWidth=1;
+    for(let lat=-80;lat<=80;lat+=20){ const y=H*(lat+90)/180; ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+    for(let lon=0;lon<360;lon+=30){ const x=W*lon/360; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+    // simple "continents"
+    ctx.fillStyle='rgba(80,140,60,0.7)';
+    [[120,80,80,60],[240,90,60,50],[180,120,40,70],[300,100,50,40],[60,130,30,20]].forEach(([x,y,w,h])=>{
+      ctx.beginPath(); ctx.ellipse(x,y,w,h,0,0,Math.PI*2); ctx.fill();
+    });
+  });
+}
+
+// ── BUILD MATERIALS ─────────────────────────────────────────────
+
+const textures = {
+  wood: woodTex(), stone: stoneTex(), wallpaper: wallpaperTex(),
+  ceiling: ceilingTex(), oakPanel: oakPanelTex(), carpet: carpetTex(),
+  bookshelf: bookshelfTex(), blackboard: blackboardTex(),
+  clock: clockTex(), globe: globeTex()
+};
+
+// Set repeat
+[['wood',4,4],['stone',6,4],['carpet',4,4],['ceiling',4,4],['wallpaper',3,5],['oakPanel',2,2]].forEach(([k,rx,ry])=>{
+  textures[k].wrapS=textures[k].wrapT=THREE.RepeatWrapping;
+  textures[k].repeat.set(rx,ry);
+});
+
+const mat = (color, map, roughness=0.8, metalness=0.0, emissive=0x000000, emissiveInt=0) => {
+  const m = new THREE.MeshStandardMaterial({color,map,roughness,metalness});
+  if(emissive){ m.emissive=new THREE.Color(emissive); m.emissiveIntensity=emissiveInt; }
+  return m;
+};
+
+const mats = {
+  floor:    mat(0x4a3010, textures.carpet, 0.9),
+  wall:     mat(0x2a3a28, textures.wallpaper, 0.95),
+  ceiling:  mat(0xe8dfc8, textures.ceiling, 0.95),
+  wainscot: mat(0x3a2208, textures.oakPanel, 0.7),
+  wood:     mat(0x4a2e10, textures.wood, 0.7),
+  stone:    mat(0x5a4a38, textures.stone, 0.9),
+  blackboard: mat(0x1a2a1a, textures.blackboard, 0.95, 0),
+  brass:    mat(0xd4a017, null, 0.3, 0.8),
+  gold:     mat(0xc9a55a, null, 0.2, 0.9),
+  ivory:    mat(0xf5e8c8, null, 0.8),
+  dark:     mat(0x1a0f00, null, 0.9),
+  glass:    new THREE.MeshStandardMaterial({color:0x88aacc,roughness:0.05,metalness:0.1,transparent:true,opacity:0.3,side:THREE.DoubleSide}),
+};
+
+// ── ROOM GEOMETRY ───────────────────────────────────────────────
+
+const ROOM_W = 16, ROOM_H = 4.5, ROOM_D = 24;
+const add = (geo, mat, x=0,y=0,z=0, rx=0,ry=0,rz=0, sx=1,sy=1,sz=1) => {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x,y,z); m.rotation.set(rx,ry,rz); m.scale.set(sx,sy,sz);
+  m.castShadow=true; m.receiveShadow=true;
+  scene.add(m); return m;
+};
+const box  = (w,h,d)=>new THREE.BoxGeometry(w,h,d);
+const cyl  = (r1,r2,h,s=16)=>new THREE.CylinderGeometry(r1,r2,h,s);
+const sph  = (r,sw=32,sh=16)=>new THREE.SphereGeometry(r,sw,sh);
+const plane= (w,h)=>new THREE.PlaneGeometry(w,h);
+
+// Floor
+add(box(ROOM_W,0.2,ROOM_D), mats.floor, 0,-0.1,0);
+// Ceiling
+add(box(ROOM_W,0.15,ROOM_D), mats.ceiling, 0,ROOM_H,0);
+// Walls
+add(box(ROOM_W,ROOM_H,0.2), mats.wall, 0,ROOM_H/2,-ROOM_D/2);
+add(box(ROOM_W,ROOM_H,0.2), mats.wall, 0,ROOM_H/2, ROOM_D/2);
+add(box(0.2,ROOM_H,ROOM_D), mats.wall, -ROOM_W/2,ROOM_H/2,0);
+add(box(0.2,ROOM_H,ROOM_D), mats.wall,  ROOM_W/2,ROOM_H/2,0);
+
+// Wainscoting (lower wall panels)
+[[0,0.7,-ROOM_D/2+0.11,0],[0,0.7,ROOM_D/2-0.11,Math.PI],
+ [-ROOM_W/2+0.11,0.7,0,Math.PI/2],[ROOM_W/2-0.11,0.7,0,-Math.PI/2]].forEach(([x,y,z,ry])=>{
+  const m=add(box(ROOM_W,1.4,0.1), mats.wainscot, x,y,z,0,ry,0);
+});
+
+// Skirting boards
+const skirtProfile = box(ROOM_W,0.08,0.06);
+add(skirtProfile, mats.wood, 0,0.04,-ROOM_D/2+0.05); add(skirtProfile, mats.wood, 0,0.04,ROOM_D/2-0.05);
+add(box(0.06,0.08,ROOM_D), mats.wood, -ROOM_W/2+0.03,0.04,0); add(box(0.06,0.08,ROOM_D), mats.wood, ROOM_W/2-0.03,0.04,0);
+
+// Crown moulding
+add(box(ROOM_W,0.12,0.1), mats.ivory, 0,ROOM_H-0.06,-ROOM_D/2+0.05);
+add(box(ROOM_W,0.12,0.1), mats.ivory, 0,ROOM_H-0.06,ROOM_D/2-0.05);
+add(box(0.1,0.12,ROOM_D), mats.ivory, -ROOM_W/2+0.05,ROOM_H-0.06,0);
+add(box(0.1,0.12,ROOM_D), mats.ivory, ROOM_W/2-0.05,ROOM_H-0.06,0);
+
+// Ceiling medallions
+for(let i=-1;i<=1;i++){
+  const m=add(cyl(0.6,0.6,0.05,32), mats.ivory, i*4,ROOM_H-0.02,0);
+  add(cyl(0.3,0.3,0.06,32), mats.ivory, i*4,ROOM_H-0.02,0);
+}
+
+// ── FURNITURE ───────────────────────────────────────────────────
+
+// Teacher's desk (front)
+const deskMat = mat(0x3a2208, textures.wood, 0.6);
+add(box(2.4,0.08,1.2), deskMat, 0,0.78,-ROOM_D/2+2.5);
+add(box(0.08,0.78,1.2), deskMat, -1.16,0.39,-ROOM_D/2+2.5);
+add(box(0.08,0.78,1.2), deskMat,  1.16,0.39,-ROOM_D/2+2.5);
+add(box(2.24,0.78,0.08), deskMat, 0,0.39,-ROOM_D/2+1.94);
+// Drawer
+add(box(0.8,0.25,0.05), deskMat, 0.4,0.55,-ROOM_D/2+1.96);
+add(cyl(0.02,0.02,0.04), mats.brass, 0.4,0.55,-ROOM_D/2+1.93);
+
+// Teacher's chair
+add(box(0.52,0.04,0.52), deskMat, 0,0.46,-ROOM_D/2+3.5);
+add(box(0.52,0.38,0.04), deskMat, 0,0.65,-ROOM_D/2+3.72);
+[[-0.22,0.22,-ROOM_D/2+3.24],[0.22,0.22,-ROOM_D/2+3.24],[-0.22,0.22,-ROOM_D/2+3.74],[0.22,0.22,-ROOM_D/2+3.74]].forEach(([x,y,z])=>
+  add(cyl(0.025,0.025,0.44), deskMat,x,y,z)
+);
+
+// Student desks (3 rows x 2 cols)
+for(let row=0;row<3;row++) for(let col=0;col<2;col++){
+  const dx=(col-0.5)*4, dz=-ROOM_D/2+7+row*3.5;
+  add(box(1.4,0.05,0.8), deskMat, dx,0.72,dz);
+  [[-0.6,0.36,dz-0.3],[0.6+dx-dx,0.36,dz-0.3],[-0.6+dx-dx,0.36,dz+0.3],[0.6+dx-dx,0.36,dz+0.3]].forEach(([x,y,z])=>{
+    add(cyl(0.02,0.02,0.72), deskMat, dx+(x-dx),y,z);
+  });
+  // Chair
+  add(box(0.46,0.04,0.46), deskMat, dx,0.45,dz+0.9);
+  add(box(0.46,0.35,0.04), deskMat, dx,0.63,dz+1.12);
+}
+
+// Bookshelf (left wall)
+const bsMat = mat(0x3a2208, textures.wood, 0.7);
+add(box(0.2,3.0,1.8), bsMat, -ROOM_W/2+0.32,1.5,-ROOM_D/2+2);
+add(box(0.2,3.0,1.8), bsMat, -ROOM_W/2+0.32,1.5, ROOM_D/2-2);
+for(let shelf=0;shelf<5;shelf++){
+  const sy=0.4+shelf*0.52;
+  // Books on left shelf
+  const bkMat = mat(0xffffff, textures.bookshelf, 0.8);
+  bkMat.map = textures.bookshelf;
+  add(box(0.12,0.48,1.6), bkMat, -ROOM_W/2+0.32,sy,-ROOM_D/2+2);
+  add(box(0.12,0.48,1.6), bkMat, -ROOM_W/2+0.32,sy, ROOM_D/2-2);
+}
+
+// Blackboard (front wall)
+add(box(4.5,1.6,0.05), mats.blackboard, 0,2.6,-ROOM_D/2+0.13);
+// Chalk tray
+add(box(4.5,0.06,0.12), mats.wood, 0,1.82,-ROOM_D/2+0.18);
+// Frame around blackboard
+add(box(4.6,0.08,0.06), mats.wood, 0,3.42,-ROOM_D/2+0.14);
+add(box(4.6,0.08,0.06), mats.wood, 0,1.78,-ROOM_D/2+0.14);
+add(box(0.08,1.72,0.06), mats.wood, -2.3,2.6,-ROOM_D/2+0.14);
+add(box(0.08,1.72,0.06), mats.wood,  2.3,2.6,-ROOM_D/2+0.14);
+
+// Globe on desk
+const globeMat = mat(0xffffff, textures.globe, 0.6);
+add(sph(0.22), globeMat, 0.7,0.98,-ROOM_D/2+2.5);
+add(cyl(0.02,0.05,0.18), mats.brass, 0.7,0.72,-ROOM_D/2+2.5);
+
+// Clock on wall
+const clockMat = mat(0xf5e8c8, textures.clock, 0.8);
+add(cyl(0.32,0.32,0.04,32), clockMat, -3,3.2,-ROOM_D/2+0.12);
+add(cyl(0.35,0.35,0.06,32), mats.wood, -3,3.2,-ROOM_D/2+0.13);
+
+// Chandeliers
+for(let i=-1;i<=1;i++){
+  const cx=0, cy=ROOM_H-0.2, cz=i*6;
+  add(cyl(0.06,0.06,0.3), mats.brass, cx,cy-0.15,cz);
+  add(cyl(0.3,0.2,0.2,8), mats.gold, cx,cy-0.4,cz);
+  // Candle arms
+  for(let a=0;a<6;a++){
+    const angle=a*Math.PI/3;
+    const ax=cx+Math.cos(angle)*0.35, az=cz+Math.sin(angle)*0.35;
+    add(cyl(0.015,0.015,0.5), mats.brass, ax,cy-0.4,az, 0,0,Math.PI*0.1*Math.sin(angle));
+    add(cyl(0.025,0.015,0.12), mats.ivory, ax,cy-0.12,az);
+    // Flame (emissive sphere)
+    const flameMat=new THREE.MeshStandardMaterial({color:0xffaa00,emissive:new THREE.Color(0xff8800),emissiveIntensity:2,roughness:1});
+    add(sph(0.03,8,8), flameMat, ax,cy-0.05,az);
+  }
+}
+
+// Windows (right wall) with light effect
+for(let i=-1;i<=1;i++){
+  const wz=i*7;
+  // Window frame (outer)
+  add(box(0.08,2.2,1.5), mats.wood, ROOM_W/2-0.12,2.2,wz);
+  add(box(0.08,2.2,0.08), mats.wood, ROOM_W/2-0.12,2.2,wz-0.71);
+  add(box(0.08,2.2,0.08), mats.wood, ROOM_W/2-0.12,2.2,wz+0.71);
+  add(box(0.08,0.08,1.5), mats.wood, ROOM_W/2-0.12,3.24,wz);
+  add(box(0.08,0.08,1.5), mats.wood, ROOM_W/2-0.12,1.16,wz);
+  add(box(0.08,0.08,1.5), mats.wood, ROOM_W/2-0.12,2.2,wz);
+  // Glass
+  add(plane(1.34,1.0), mats.glass, ROOM_W/2-0.05,2.72,wz, 0,Math.PI/2,0);
+  add(plane(1.34,1.0), mats.glass, ROOM_W/2-0.05,1.68,wz, 0,Math.PI/2,0);
+  // Window sill
+  add(box(0.25,0.06,1.6), mats.wood, ROOM_W/2-0.06,1.14,wz);
+}
+
+// Fireplace (right, back area)
+add(box(2.2,2.2,0.25), mats.stone, ROOM_W/2-0.1,1.1,-ROOM_D/2+12, 0,-Math.PI/2,0);
+add(box(1.4,1.4,0.3), mat(0x1a0a00,null,0.9), ROOM_W/2-0.12,0.7,-ROOM_D/2+12, 0,-Math.PI/2,0);
+// Mantelpiece
+add(box(0.3,2.4,0.3), mats.stone, ROOM_W/2-0.15,1.1,-ROOM_D/2+11);
+add(box(0.3,2.4,0.3), mats.stone, ROOM_W/2-0.15,1.1,-ROOM_D/2+13);
+add(box(0.3,0.15,2.6), mats.stone, ROOM_W/2-0.12,2.22,-ROOM_D/2+12);
+// Fire glow
+const fireMat=new THREE.MeshStandardMaterial({color:0xff6600,emissive:new THREE.Color(0xff4400),emissiveIntensity:3,roughness:1});
+add(sph(0.2,8,8), fireMat, ROOM_W/2-0.4,0.4,-ROOM_D/2+12);
+add(sph(0.12,8,8), fireMat, ROOM_W/2-0.4,0.6,-ROOM_D/2+11.8);
+
+// Trophy cabinet (back)
+add(box(2.0,2.5,0.5), mats.wood, -ROOM_W/2+1.2,1.25,ROOM_D/2-0.6);
+add(box(1.8,2.3,0.08), mats.glass, -ROOM_W/2+1.2,1.25,ROOM_D/2-0.37);
+// Trophies
+[[-ROOM_W/2+0.9,1.5,ROOM_D/2-0.65],[-ROOM_W/2+1.2,1.8,ROOM_D/2-0.65],[-ROOM_W/2+1.5,1.5,ROOM_D/2-0.65]].forEach(([x,y,z])=>{
+  add(cyl(0.05,0.08,0.28), mats.gold, x,y,z);
+  add(cyl(0.08,0.04,0.12), mats.gold, x,y+0.2,z);
+  add(sph(0.07), mats.gold, x,y+0.32,z);
+});
+
+// Pillar columns (decorative)
+[[-ROOM_W/2+0.5,ROOM_H/2,-ROOM_D/4],[ROOM_W/2-0.5,ROOM_H/2,-ROOM_D/4],
+ [-ROOM_W/2+0.5,ROOM_H/2,ROOM_D/4],[ROOM_W/2-0.5,ROOM_H/2,ROOM_D/4]].forEach(([x,y,z])=>{
+  add(cyl(0.14,0.14,ROOM_H-0.3,16), mats.ivory, x,y,z);
+  add(cyl(0.18,0.14,0.1,16), mats.ivory, x,ROOM_H-0.15,z);
+  add(cyl(0.14,0.18,0.1,16), mats.ivory, x,0.05,z);
+});
+
+// Potted plant
+const plantMat=mat(0x2a4a18,null,0.9);
+add(cyl(0.18,0.22,0.35,8), mat(0x8b4513,null,0.8), -ROOM_W/2+1.0,0.18,ROOM_D/2-2.5);
+for(let l=0;l<8;l++){
+  const a=l*Math.PI/4, r=0.1+Math.random()*0.15;
+  add(sph(0.12+Math.random()*0.08,6,4), plantMat, -ROOM_W/2+1.0+Math.cos(a)*r, 0.5+Math.random()*0.3, ROOM_D/2-2.5+Math.sin(a)*r);
+}
+
+// Portrait placeholder frames (to be filled with uploaded images)
+// These will be the 6 painting frames
+const FRAME_POSITIONS = [
+  {pos:[-5,2.5,-ROOM_D/2+0.15], rot:[0,0,0],        size:[1.4,1.8], id:0, name:'Main Hall'},
+  {pos:[ 5,2.5,-ROOM_D/2+0.15], rot:[0,0,0],        size:[1.4,1.8], id:1, name:'East Wing'},
+  {pos:[-ROOM_W/2+0.15,2.5,-4], rot:[0,Math.PI/2,0],size:[1.8,1.4], id:2, name:'Library'},
+  {pos:[-ROOM_W/2+0.15,2.5, 4], rot:[0,Math.PI/2,0],size:[1.8,1.4], id:3, name:'Trophy'},
+  {pos:[ ROOM_W/2-0.15,2.5,-8], rot:[0,-Math.PI/2,0],size:[1.4,1.6], id:4, name:'Corridor'},
+  {pos:[ ROOM_W/2-0.15,2.5, 8], rot:[0,-Math.PI/2,0],size:[1.4,1.6], id:5, name:'Study Hall'},
+];
+
+const paintingMeshes = [];
+const FRAME_THICKNESS = 0.06;
+
+FRAME_POSITIONS.forEach(fp => {
+  const [fw, fh] = fp.size;
+  // Outer frame
+  const frameMat = mat(0x4a2e08, null, 0.5, 0.2);
+  frameMat.color.set(0x5a3c10);
+  // Top/bottom bars
+  const fb = add(box(fw+0.16, 0.08, FRAME_THICKNESS), mat(0x5a3c10,null,0.5,0.2), ...fp.pos, ...fp.rot);
+  fb.position.y = fp.pos[1] + fh/2 + 0.04;
+  const fb2 = add(box(fw+0.16, 0.08, FRAME_THICKNESS), mat(0x5a3c10,null,0.5,0.2), ...fp.pos, ...fp.rot);
+  fb2.position.y = fp.pos[1] - fh/2 - 0.04;
+  // Left/right bars
+  const fl = add(box(0.08, fh+0.16, FRAME_THICKNESS), mat(0x5a3c10,null,0.5,0.2), ...fp.pos, ...fp.rot);
+  fl.position.x -= Math.cos(fp.rot[1]) * (fw/2+0.04);
+  fl.position.z -= Math.sin(fp.rot[1]) * (fw/2+0.04);
+  const fr2 = add(box(0.08, fh+0.16, FRAME_THICKNESS), mat(0x5a3c10,null,0.5,0.2), ...fp.pos, ...fp.rot);
+  fr2.position.x += Math.cos(fp.rot[1]) * (fw/2+0.04);
+  fr2.position.z += Math.sin(fp.rot[1]) * (fw/2+0.04);
+
+  // Gold inner trim
+  const trimW = fw+0.04, trimH = fh+0.04;
+  const trimMat = mat(0xc9a55a,null,0.2,0.8);
+  [1,-1].forEach(s=>{
+    add(box(trimW,0.03,0.03),trimMat,...fp.pos,...fp.rot).position.y=fp.pos[1]+s*(fh/2+0.01);
+    const ts=add(box(0.03,trimH,0.03),trimMat,...fp.pos,...fp.rot);
+    ts.position.x+=s*Math.cos(fp.rot[1])*(fw/2+0.01);
+    ts.position.z+=s*Math.sin(fp.rot[1])*(fw/2+0.01);
+  });
+
+  // Canvas (painting surface)
+  const canvasGeo = plane(fw, fh);
+  // Default texture (elegant parchment with crest)
+  const defaultTex = makeCanvasTex(400, Math.round(400*fh/fw), (ctx,W,H)=>{
+    // Aged parchment background
+    const g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#c8a878'); g.addColorStop(1,'#a87848');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // Vignette
+    const vg=ctx.createRadialGradient(W/2,H/2,W*0.2,W/2,H/2,W*0.8);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.4)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+    // Frame number
+    ctx.fillStyle='rgba(80,50,10,0.4)'; ctx.font=`bold ${H*0.3}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Frame', W/2, H*0.38);
+    ctx.font=`bold ${H*0.22}px serif`;
+    ctx.fillText('#'+(fp.id+1), W/2, H*0.62);
+    // Decorative border
+    ctx.strokeStyle='rgba(80,50,10,0.4)'; ctx.lineWidth=3;
+    ctx.strokeRect(10,10,W-20,H-20);
+    ctx.lineWidth=1; ctx.strokeRect(16,16,W-32,H-32);
+  });
+
+  const paintMat = mat(0xffffff, defaultTex, 0.95);
+  const paintMesh = add(canvasGeo, paintMat, ...fp.pos, ...fp.rot);
+  // Nudge painting slightly off wall
+  paintMesh.position.x += Math.sin(fp.rot[1])*0.06;
+  paintMesh.position.z += Math.cos(fp.rot[1]) > 0.5 ? 0.06 : (fp.rot[1] !== 0 ? -0.06 : 0.06);
+  paintMesh.userData = { frameId: fp.id, name: fp.name };
+  paintingMeshes.push(paintMesh);
+
+  // Wall spotlight above frame
+  const sl = new THREE.SpotLight(0xffe8b0, 3.0, 5, Math.PI/7, 0.4);
+  sl.position.set(fp.pos[0]+Math.sin(fp.rot[1])*0.3, fp.pos[1]+1.2, fp.pos[2]+Math.cos(fp.rot[1])*0.3);
+  sl.target.position.copy(new THREE.Vector3(fp.pos[0], fp.pos[1], fp.pos[2]));
+  sl.castShadow=true;
+  scene.add(sl); scene.add(sl.target);
+});
+
+// ── LIGHTING ────────────────────────────────────────────────────
+
+// Ambient
+scene.add(new THREE.AmbientLight(0xfff0d0, 1.2));
+
+// Main warm light
+const mainLight = new THREE.DirectionalLight(0xffe8b0, 1.2);
+mainLight.position.set(0, ROOM_H-0.5, 0);
+mainLight.castShadow = true; scene.add(mainLight);
+
+// Chandelier point lights
+for(let i=-1;i<=1;i++){
+  const pl = new THREE.PointLight(0xffd080, 4.5, 16, 2);
+  pl.position.set(0, ROOM_H-0.5, i*6);
+  pl.castShadow=true; scene.add(pl);
+}
+
+// Window light (cool daylight)
+for(let i=-1;i<=1;i++){
+  const wl = new THREE.PointLight(0xe8f4ff, 2.5, 12, 2);
+  wl.position.set(ROOM_W/2-1, 2.5, i*7);
+  scene.add(wl);
+}
+
+// Fireplace
+const firePL = new THREE.PointLight(0xff6020, 2.5, 6, 2);
+firePL.position.set(ROOM_W/2-1.5, 1.0, -ROOM_D/2+12);
+scene.add(firePL);
+
+// ── MOVEMENT CONTROLLER ─────────────────────────────────────────
+
+const keys = {};
+let isLocked = false;
+const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+const PI_2 = Math.PI/2;
+
+document.addEventListener('keydown', e=>{ keys[e.code]=true; });
+document.addEventListener('keyup',   e=>{ keys[e.code]=false; });
+
+const overlay = document.getElementById('pointer-lock-overlay');
+overlay.addEventListener('click', ()=>{
+  canvas.requestPointerLock();
+});
+
+document.addEventListener('pointerlockchange', ()=>{
+  isLocked = document.pointerLockElement === canvas;
+  overlay.classList.toggle('hidden', isLocked);
+  document.getElementById('crosshair').style.opacity = isLocked ? '1' : '0';
+});
+
+document.addEventListener('mousemove', e=>{
+  if(!isLocked) return;
+  euler.setFromQuaternion(camera.quaternion);
+  euler.y -= e.movementX * 0.002;
+  euler.x -= e.movementY * 0.002;
+  euler.x = Math.max(-PI_2*0.8, Math.min(PI_2*0.8, euler.x));
+  camera.quaternion.setFromEuler(euler);
+});
+
+// Place photo with E key
+document.addEventListener('keydown', e=>{
+  if(e.code==='KeyE' && isLocked) {
+    const selImg = getSelectedImage();
+    const selFrame = parseInt(document.getElementById('frame-select').value);
+    if(selImg) placeImageOnFrame(selImg, selFrame);
+  }
+});
+
+const MOVE_SPEED = 0.06;
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const HW = ROOM_W/2-0.4, HD = ROOM_D/2-0.4, MIN_Y=1.7, MAX_Y=1.7;
+
+function movePlayer(delta) {
+  if(!isLocked) return;
+  direction.set(0,0,0);
+  if(keys['KeyW']||keys['ArrowUp'])    direction.z -= 1;
+  if(keys['KeyS']||keys['ArrowDown'])  direction.z += 1;
+  if(keys['KeyA']||keys['ArrowLeft'])  direction.x -= 1;
+  if(keys['KeyD']||keys['ArrowRight']) direction.x += 1;
+  if(direction.lengthSq()>0) direction.normalize();
+  const forward = new THREE.Vector3(-Math.sin(euler.y),0,-Math.cos(euler.y));
+  const right   = new THREE.Vector3(-Math.cos(euler.y),0, Math.sin(euler.y));
+  const move = forward.multiplyScalar(direction.z).add(right.multiplyScalar(direction.x));
+  camera.position.addScaledVector(move, MOVE_SPEED);
+  camera.position.x = Math.max(-HW, Math.min(HW, camera.position.x));
+  camera.position.z = Math.max(-HD, Math.min(HD, camera.position.z));
+  camera.position.y = MIN_Y;
+}
+
+// Fireplace flicker
+function flickerFire(time) {
+  firePL.intensity = 2.0 + Math.sin(time*8)*0.5 + Math.sin(time*13)*0.3;
+}
+
+// ── ANIMATION LOOP ──────────────────────────────────────────────
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  const elapsed = clock.getElapsedTime();
+  movePlayer(delta);
+  flickerFire(elapsed);
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── UPLOAD PANEL LOGIC ──────────────────────────────────────────
+
+let uploadedImages = [];
+let selectedImageIndex = -1;
+
+function togglePanel() {
+  document.getElementById('upload-panel').classList.toggle('hidden');
+}
+
+function getSelectedImage() {
+  if(selectedImageIndex >= 0 && selectedImageIndex < uploadedImages.length)
+    return uploadedImages[selectedImageIndex];
+  return null;
+}
+
+function placeImageOnFrame(imgData, frameIndex) {
+  if(frameIndex < 0 || frameIndex >= paintingMeshes.length) return;
+  const mesh = paintingMeshes[frameIndex];
+  const img = new Image();
+  img.onload = ()=>{
+    const fp = FRAME_POSITIONS[frameIndex];
+    const [fw,fh] = fp.size;
+    const CW=512, CH=Math.round(512*fh/fw);
+    const c=document.createElement('canvas'); c.width=CW; c.height=CH;
+    const ctx=c.getContext('2d');
+    // Aged vignette bg
+    ctx.fillStyle='#1a0f00'; ctx.fillRect(0,0,CW,CH);
+    // Draw image fit
+    const aspect=img.width/img.height, cAspect=CW/CH;
+    let dx=0,dy=0,dw=CW,dh=CH;
+    if(aspect>cAspect){ dh=CW/aspect; dy=(CH-dh)/2; } else { dw=CH*aspect; dx=(CW-dw)/2; }
+    ctx.drawImage(img, dx, dy, dw, dh);
+    // Sepia overlay
+    ctx.fillStyle='rgba(100,60,0,0.15)'; ctx.fillRect(0,0,CW,CH);
+    // Vignette
+    const vg=ctx.createRadialGradient(CW/2,CH/2,CW*0.2,CW/2,CH/2,CW*0.8);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.45)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,CW,CH);
+
+    const tex=new THREE.CanvasTexture(c);
+    tex.encoding=THREE.sRGBEncoding;
+    mesh.material.map=tex;
+    mesh.material.needsUpdate=true;
+    setStatus('✓ Image placed on '+FRAME_POSITIONS[frameIndex].name, 'success');
+  };
+  img.src = imgData;
+}
+
+function clearFrame(frameIndex) {
+  const mesh = paintingMeshes[frameIndex];
+  const fp=FRAME_POSITIONS[frameIndex];
+  const [fw,fh]=fp.size;
+  const defaultTex=makeCanvasTex(400,Math.round(400*fh/fw),(ctx,W,H)=>{
+    const g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#c8a878'); g.addColorStop(1,'#a87848');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const vg=ctx.createRadialGradient(W/2,H/2,W*0.2,W/2,H/2,W*0.8);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.4)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(80,50,10,0.4)'; ctx.font=`bold ${H*0.3}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Frame', W/2, H*0.38);
+    ctx.font=`bold ${H*0.22}px serif`;
+    ctx.fillText('#'+(fp.id+1), W/2, H*0.62);
+    ctx.strokeStyle='rgba(80,50,10,0.4)'; ctx.lineWidth=3;
+    ctx.strokeRect(10,10,W-20,H-20); ctx.lineWidth=1; ctx.strokeRect(16,16,W-32,H-32);
+  });
+  mesh.material.map=defaultTex; mesh.material.needsUpdate=true;
+  setStatus('Frame cleared', '');
+}
+
+function setStatus(msg, type='') {
+  const el=document.getElementById('status-bar');
+  el.textContent=msg; el.className='status-bar'+(type?' '+type:'');
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent='Ready'; },3000);
+}
+
+function addThumbnail(imgData, index) {
+  const grid=document.getElementById('thumbnail-grid');
+  const item=document.createElement('div');
+  item.className='thumb-item'; item.dataset.index=index;
+  const img=document.createElement('img'); img.src=imgData;
+  const btn=document.createElement('button');
+  btn.className='remove-btn'; btn.textContent='×';
+  btn.onclick=(e)=>{ e.stopPropagation(); removeImage(index); };
+  item.appendChild(img); item.appendChild(btn);
+  item.onclick=()=>selectImage(index);
+  grid.appendChild(item);
+}
+
+function selectImage(index) {
+  selectedImageIndex=index;
+  document.querySelectorAll('.thumb-item').forEach((el,i)=>
+    el.classList.toggle('active', parseInt(el.dataset.index)===index));
+  document.getElementById('place-btn').disabled=false;
+  setStatus('Image selected — press Place or E key');
+}
+
+function removeImage(index) {
+  uploadedImages.splice(index,1);
+  refreshThumbnails();
+  if(selectedImageIndex>=uploadedImages.length) selectedImageIndex=uploadedImages.length-1;
+  document.getElementById('place-btn').disabled=uploadedImages.length===0;
+}
+
+function refreshThumbnails() {
+  document.getElementById('thumbnail-grid').innerHTML='';
+  uploadedImages.forEach((img,i)=>addThumbnail(img,i));
+  if(selectedImageIndex>=0 && selectedImageIndex<uploadedImages.length)
+    document.querySelectorAll('.thumb-item').forEach((el,i)=>
+      el.classList.toggle('active', i===selectedImageIndex));
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(file=>{
+    if(!file.type.startsWith('image/')) return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      uploadedImages.push(e.target.result);
+      addThumbnail(e.target.result, uploadedImages.length-1);
+      if(uploadedImages.length===1) selectImage(0);
+      setStatus(uploadedImages.length+' image(s) loaded');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// File input
+document.getElementById('file-input').addEventListener('change', e=>handleFiles(e.target.files));
+
+// Drag & drop
+const zone=document.getElementById('upload-zone');
+zone.addEventListener('dragover',e=>{ e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+zone.addEventListener('drop',e=>{ e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+// Place button
+document.getElementById('place-btn').addEventListener('click',()=>{
+  const img=getSelectedImage();
+  const frame=parseInt(document.getElementById('frame-select').value);
+  if(img) placeImageOnFrame(img,frame);
+  else setStatus('Select an image first','error');
+});
+
+// Clear button
+document.getElementById('clear-btn').addEventListener('click',()=>{
+  clearFrame(parseInt(document.getElementById('frame-select').value));
+});
+
+// Show panel after loading
+setTimeout(()=>{
+  document.getElementById('upload-panel').classList.remove('hidden');
+},2200);
+
+// ── LOADING SIMULATION ──────────────────────────────────────────
+
+const steps = [
+  [0,  'Preparing the Halls...'],
+  [20, 'Laying the Carpets...'],
+  [40, 'Hanging the Portraits...'],
+  [60, 'Lighting the Chandeliers...'],
+  [80, 'Polishing the Brass...'],
+  [95, 'Opening the Doors...'],
+];
+let stepIdx=0;
+const bar=document.getElementById('loading-bar');
+const ltxt=document.getElementById('loading-text');
+const loadInterval=setInterval(()=>{
+  if(stepIdx<steps.length){
+    const [pct,msg]=steps[stepIdx++];
+    bar.style.width=pct+'%'; ltxt.textContent=msg;
+  } else {
+    bar.style.width='100%';
+    clearInterval(loadInterval);
+    setTimeout(()=>{
+      document.getElementById('loading-screen').classList.add('fade-out');
+      setTimeout(()=>document.getElementById('loading-screen').remove(),1500);
+    }, 600);
+  }
+},300);
+
+// ── START ───────────────────────────────────────────────────────
+animate();
+</script>
+</body>
+</html>
